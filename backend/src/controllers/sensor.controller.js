@@ -5,6 +5,9 @@
 const { saveSensorData, getLatestData } = require('../services/sensor.service');
 const { sendSuccess, sendError } = require('../utils/response.util');
 
+/** Throttle noisy “no data yet” logs from dashboard polling (1 req/sec). */
+let lastGetLatestEmptyLogMs = 0;
+
 /**
  * postSensorData
  * Route:  POST /api/sensor
@@ -23,8 +26,14 @@ const { sendSuccess, sendError } = require('../utils/response.util');
  */
 const postSensorData = async (req, res) => {
   try {
-    console.log('\n--- 📥 INCOMING POST REQUEST FROM ESP32 ---');
-    console.log('Raw Payload received:', req.body);
+    // ─── BEFORE: prove the HTTP POST hit this handler and the body was parsed ───
+    console.log('\n========== [ESP32 POST] BEFORE ==========');
+    console.log('  time (ISO):     ', new Date().toISOString());
+    console.log('  method / url:   ', req.method, req.originalUrl);
+    console.log('  content-type:   ', req.get('content-type') || '(missing)');
+    console.log('  client IP:      ', req.ip || req.socket?.remoteAddress);
+    console.log('  body (string):  ', JSON.stringify(req.body));
+    console.log('=========================================\n');
 
     const {
       temperature,
@@ -62,13 +71,24 @@ const postSensorData = async (req, res) => {
     if (finalDanger === undefined) missingFields.push('danger');
 
     if (missingFields.length > 0) {
-      console.warn('❌ ERROR: Missing fields from ESP32 payload:', missingFields);
+      console.warn('[ESP32 POST] REJECTED — missing fields:', missingFields);
+      console.warn('[ESP32 POST] body was:', JSON.stringify(req.body));
       return sendError(
         res,
         400,
         `Missing required fields: ${missingFields.join(', ')}`
       );
     }
+
+    console.log('[ESP32 POST] validated payload →', {
+      temperature,
+      distance,
+      gasValue,
+      gasDetected,
+      flameDetected,
+      emergencyPressed: finalEmergency,
+      danger: finalDanger,
+    });
 
     // --- Persist the reading via the service layer ---
     const savedData = await saveSensorData({
@@ -81,17 +101,24 @@ const postSensorData = async (req, res) => {
       danger: finalDanger,
     });
 
-    console.log('✅ SUCCESS: Data saved to MongoDB. ID:', savedData._id);
-
-    // Log a server-side warning if the system is in a dangerous state
+    // ─── AFTER: prove MongoDB accepted the document ───
+    const plain =
+      typeof savedData?.toObject === 'function'
+        ? savedData.toObject()
+        : savedData;
+    console.log('\n========== [ESP32 POST] AFTER (saved) ==========');
+    console.log('  mongo _id:      ', plain?._id);
+    console.log('  createdAt:      ', plain?.createdAt);
+    console.log('  snapshot:       ', JSON.stringify(plain));
     if (finalDanger) {
-      console.warn('⚠️  DANGER condition active (computed or from payload)!');
+      console.warn('  ⚠️ danger flag true');
     }
+    console.log('===============================================\n');
 
-    console.log('--- 🏁 END POST REQUEST ---\n');
     return sendSuccess(res, 201, 'Sensor data saved successfully', savedData);
   } catch (error) {
-    console.error('❌ postSensorData error:', error.message);
+    console.error('[ESP32 POST] EXCEPTION:', error.message);
+    console.error(error.stack);
     // Handle Mongoose validation errors specifically
     if (error.name === 'ValidationError') {
       return sendError(res, 400, error.message);
@@ -112,6 +139,13 @@ const getLatestSensorData = async (req, res) => {
     // Return 200 with null data instead of 404 if no readings exist yet
     // This prevents the browser console from filling up with 404 Not Found errors
     if (!data) {
+      const now = Date.now();
+      if (now - lastGetLatestEmptyLogMs > 10000) {
+        lastGetLatestEmptyLogMs = now;
+        console.log(
+          '[GET /latest] still no documents in Sensor collection (waiting for ESP32 POST or check MongoDB)'
+        );
+      }
       return sendSuccess(res, 200, 'No sensor data found yet', null);
     }
 
