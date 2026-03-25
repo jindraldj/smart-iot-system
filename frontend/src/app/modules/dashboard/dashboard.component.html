@@ -1,0 +1,170 @@
+<div class="min-h-screen bg-gray-100 p-6 flex flex-col items-center font-sans">
+  
+  <!-- Dashboard Header -->
+  <div class="w-full max-w-6xl flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-gray-800 tracking-tight">IoT Smart Bus Dashboard</h1>
+    
+    <!-- Global Status Pill (Danger / Safe) -->
+    <div 
+      class="px-6 py-2 rounded-full font-bold text-lg tracking-wide shadow-sm transition-colors duration-300"
+      [ngClass]="sensorData?.danger ? 'bg-red-500 text-white animate-pulse' : 'bg-green-500 text-white'"
+    >
+      <div class="flex items-center gap-2">
+        <mat-icon>{{ sensorData?.danger ? 'warning' : 'check_circle' }}</mat-icon>
+        <span>STATUS: {{ sensorData?.danger ? 'DANGER' : 'SAFE' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State overlay if data hasn't arrived yet -->
+  <div *ngIf="!sensorData" class="flex flex-col items-center justify-center mt-20 text-gray-500">
+    <mat-icon class="animate-spin text-5xl mb-4">autorenew</mat-icon>
+    <p class="text-xl">Connecting to ESP32 stream...</p>
+  </div>
+
+  <!-- Dashboard Grid (6 Cards) -->
+  <div *ngIf="sensorData" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+
+    <!-- 1. Temperature Card -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative">
+      <div class="absolute top-0 left-0 w-2 h-full" [ngClass]="sensorData.temperature > 40 ? 'bg-red-500' : 'bg-blue-500'"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>thermostat</mat-icon> Temperature
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4 flex flex-col items-center text-center">
+        <div 
+          class="text-6xl font-black transition-colors"
+          [ngClass]="sensorData.temperature > 40 ? 'text-red-600' : 'text-gray-800'"
+        >
+          {{ sensorData.temperature }}°<span class="text-3xl">C</span>
+        </div>
+        <p class="text-sm mt-3 text-gray-400">Normal Range: < 40°C</p>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 2. Distance Card -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative">
+      <div class="absolute top-0 left-0 w-2 h-full" [ngClass]="sensorData.distance < 20 ? 'bg-red-500' : 'bg-purple-500'"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>radar</mat-icon> Proximity
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4 flex flex-col items-center text-center">
+        <div 
+          class="text-6xl font-black transition-colors"
+          [ngClass]="sensorData.distance < 20 ? 'text-red-600' : 'text-gray-800'"
+        >
+          {{ sensorData.distance }}<span class="text-3xl ml-1 text-gray-500">cm</span>
+        </div>
+        <p class="text-sm mt-3 text-gray-400">Safe Distance: > 20cm</p>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 3. Gas Value Card -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative">
+      <div class="absolute top-0 left-0 w-2 h-full" [ngClass]="sensorData.gasDetected ? 'bg-red-500' : 'bg-yellow-500'"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>cloud</mat-icon> Air Quality
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4 flex flex-col items-center text-center">
+        <div class="text-5xl font-black text-gray-800 mb-2">
+          {{ sensorData.gasValue }} <span class="text-xl text-gray-500 font-normal">ADC</span>
+        </div>
+        
+        <mat-chip-listbox>
+          <mat-chip 
+            disableRipple
+            [ngClass]="sensorData.gasDetected ? 'bg-red-100 text-red-800 border border-red-400' : 'bg-green-100 text-green-800 border border-green-400'"
+          >
+            {{ sensorData.gasDetected ? 'ALERT: TOXIC' : 'SAFE' }}
+          </mat-chip>
+        </mat-chip-listbox>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 4. Flame Card -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative"
+      [ngClass]="sensorData.flameDetected ? 'bg-red-50 border-2 border-red-500' : ''"
+    >
+      <div class="absolute top-0 left-0 w-2 h-full" [ngClass]="sensorData.flameDetected ? 'bg-red-600' : 'bg-orange-500'"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>local_fire_department</mat-icon> Fire Sensor
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-6 pb-2 flex flex-col items-center">
+        <mat-icon 
+          class="text-[5rem] w-[5rem] h-[5rem] mb-4 transition-colors"
+          [ngClass]="sensorData.flameDetected ? 'text-red-500 animate-bounce' : 'text-gray-300'"
+        >
+          {{ sensorData.flameDetected ? 'local_fire_department' : 'fire_extinguisher' }}
+        </mat-icon>
+        <span 
+          class="text-2xl font-bold tracking-widest"
+          [ngClass]="sensorData.flameDetected ? 'text-red-700' : 'text-gray-600'"
+        >
+          {{ sensorData.flameDetected ? 'YES' : 'NO' }}
+        </span>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 5. Emergency Button Card -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative"
+      [ngClass]="sensorData.emergencyPressed ? 'bg-red-50 border-2 border-red-500' : ''"
+    >
+      <div class="absolute top-0 left-0 w-2 h-full" [ngClass]="sensorData.emergencyPressed ? 'bg-red-600' : 'bg-gray-400'"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>touch_app</mat-icon> Emergency Switch
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-6 pb-2 flex flex-col items-center">
+        <div 
+          class="w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-all duration-300 shadow-inner"
+          [ngClass]="sensorData.emergencyPressed ? 'bg-red-600 scale-95 shadow-[inset_0_4px_8px_rgba(0,0,0,0.5)]' : 'bg-red-400 cursor-pointer shadow-lg'"
+        >
+          <span class="text-white font-bold" *ngIf="!sensorData.emergencyPressed">READY</span>
+          <span class="text-white font-bold text-xl" *ngIf="sensorData.emergencyPressed">STOP</span>
+        </div>
+        <span 
+          class="text-xl font-bold tracking-widest"
+          [ngClass]="sensorData.emergencyPressed ? 'text-red-700' : 'text-gray-600'"
+        >
+          {{ sensorData.emergencyPressed ? 'PRESSED' : 'NORMAL' }}
+        </span>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 6. Last Updated Metadata -->
+    <mat-card class="shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow relative bg-gray-50 lg:col-start-1 lg:col-end-4 xl:col-span-1">
+      <div class="absolute top-0 left-0 w-2 h-full bg-teal-500"></div>
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-gray-500 font-medium">
+          <mat-icon>history</mat-icon> Stream Metadata
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="pt-4 text-gray-700 flex flex-col gap-3">
+        
+        <div class="flex justify-between items-center bg-white p-3 rounded border">
+          <span class="text-sm font-semibold text-gray-500">Record ID</span>
+          <span class="font-mono text-xs">{{ sensorData._id || 'N/A' }}</span>
+        </div>
+
+        <div class="flex justify-between items-center bg-white p-3 rounded border">
+          <span class="text-sm font-semibold text-gray-500">Recorded At</span>
+          <span class="text-sm font-medium">{{ sensorData.createdAt | date:'mediumTime' }}</span>
+        </div>
+        
+        <div class="mt-2 text-xs text-center text-gray-400 flex items-center justify-center gap-1">
+          <mat-icon class="text-[14px] w-[14px] h-[14px]">wifi</mat-icon> Polling @ 1Hz
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</div>
