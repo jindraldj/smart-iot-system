@@ -17,23 +17,37 @@ const { sendSuccess, sendError } = require('../utils/response.util');
  *   gasValue: number,
  *   gasDetected: boolean,
  *   flameDetected: boolean,
- *   emergencyPressed: boolean,
- *   danger: boolean
+ *   emergencyPressed: boolean (or "emergency" — both accepted),
+ *   danger: boolean (optional; computed server-side if omitted)
  * }
  */
 const postSensorData = async (req, res) => {
   try {
     console.log('\n--- 📥 INCOMING POST REQUEST FROM ESP32 ---');
     console.log('Raw Payload received:', req.body);
-    
-    // --- NEW: Flexible Field Handling ---
-    // Handle 'emergency' as an alias for 'emergencyPressed'
-    const finalEmergency = emergencyPressed !== undefined ? emergencyPressed : req.body.emergency;
-    
-    // Calculate 'danger' if it's missing (using ESP32 logic)
+
+    const {
+      temperature,
+      distance,
+      gasValue,
+      gasDetected,
+      flameDetected,
+      emergencyPressed,
+      danger,
+    } = req.body;
+
+    // ESP32 sketch sends "emergency"; API docs use "emergencyPressed" — support both
+    const finalEmergency =
+      emergencyPressed !== undefined ? emergencyPressed : req.body.emergency;
+
+    // Calculate 'danger' if omitted (align with ESP32: gas | flame | emergency | distance < 10 cm)
     let finalDanger = danger;
     if (finalDanger === undefined) {
-      finalDanger = gasDetected || flameDetected || finalEmergency || (distance < 20);
+      finalDanger =
+        Boolean(gasDetected) ||
+        Boolean(flameDetected) ||
+        Boolean(finalEmergency) ||
+        Number(distance) < 10;
       console.log('ℹ️  Calculating "danger" status on backend:', finalDanger);
     }
 
@@ -44,7 +58,7 @@ const postSensorData = async (req, res) => {
     if (gasValue === undefined) missingFields.push('gasValue');
     if (gasDetected === undefined) missingFields.push('gasDetected');
     if (flameDetected === undefined) missingFields.push('flameDetected');
-    if (finalEmergency === undefined) missingFields.push('emergencyPressed');
+    if (finalEmergency === undefined) missingFields.push('emergencyPressed or emergency');
     if (finalDanger === undefined) missingFields.push('danger');
 
     if (missingFields.length > 0) {
@@ -70,8 +84,8 @@ const postSensorData = async (req, res) => {
     console.log('✅ SUCCESS: Data saved to MongoDB. ID:', savedData._id);
 
     // Log a server-side warning if the system is in a dangerous state
-    if (danger) {
-      console.warn('⚠️  DANGER condition received from ESP32!');
+    if (finalDanger) {
+      console.warn('⚠️  DANGER condition active (computed or from payload)!');
     }
 
     console.log('--- 🏁 END POST REQUEST ---\n');
