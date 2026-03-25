@@ -16,6 +16,16 @@ app.use(cors());
 // Parse incoming JSON request bodies (sent by ESP32 and Angular)
 app.use(express.json());
 
+// Log every request — if ESP32 POST never appears here, the packet is not reaching this PC (IP / firewall / Wi‑Fi)
+app.use((req, res, next) => {
+  const who = req.ip || req.socket?.remoteAddress || '?';
+  console.log(`[HTTP] ${req.method} ${req.originalUrl} ← ${who}`);
+  if (req.method === 'POST' && req.body && Object.keys(req.body).length > 0) {
+    console.log(`[HTTP]   body keys: ${Object.keys(req.body).join(', ')}`);
+  }
+  next();
+});
+
 // Parse URL-encoded bodies (for form submissions, if needed)
 app.use(express.urlencoded({ extended: true }));
 

@@ -40,10 +40,30 @@
 
 require('dotenv').config();
 
+const os = require('os');
 const app = require('./app');
 const connectDB = require('./config/db');
 
 const PORT = process.env.PORT || 3000;
+
+/** IPv4 addresses of this machine (ESP32 must use one of these, not localhost) */
+function printLanIps() {
+  const nets = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) ips.push({ name, address: net.address });
+    }
+  }
+  if (ips.length === 0) {
+    console.log('⚠️  No external IPv4 found — set serverUrl on ESP32 to this PC’s LAN IP manually.');
+    return;
+  }
+  console.log('🌐 Use one of these in ESP32 serverUrl (same Wi‑Fi as the board):');
+  for (const { name, address } of ips) {
+    console.log(`     http://${address}:${PORT}/api/sensor   (${name})`);
+  }
+}
 
 const start = async () => {
 
@@ -54,10 +74,8 @@ const start = async () => {
   app.listen(PORT, '0.0.0.0', () => {
 
     console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-
-    // 👉 Replace localhost with actual IP manually
-    console.log(`📡 POST sensor data → http://<YOUR-IP>:${PORT}/api/sensor`);
-    console.log(`📊 GET latest data  → http://<YOUR-IP>:${PORT}/api/sensor/latest`);
+    printLanIps();
+    console.log(`📡 POST path: /api/sensor   |   GET latest: /api/sensor/latest`);
   });
 };
 
