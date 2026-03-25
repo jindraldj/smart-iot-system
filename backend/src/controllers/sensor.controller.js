@@ -26,15 +26,16 @@ const postSensorData = async (req, res) => {
     console.log('\n--- 📥 INCOMING POST REQUEST FROM ESP32 ---');
     console.log('Raw Payload received:', req.body);
     
-    const {
-      temperature,
-      distance,
-      gasValue,
-      gasDetected,
-      flameDetected,
-      emergencyPressed,
-      danger,
-    } = req.body;
+    // --- NEW: Flexible Field Handling ---
+    // Handle 'emergency' as an alias for 'emergencyPressed'
+    const finalEmergency = emergencyPressed !== undefined ? emergencyPressed : req.body.emergency;
+    
+    // Calculate 'danger' if it's missing (using ESP32 logic)
+    let finalDanger = danger;
+    if (finalDanger === undefined) {
+      finalDanger = gasDetected || flameDetected || finalEmergency || (distance < 20);
+      console.log('ℹ️  Calculating "danger" status on backend:', finalDanger);
+    }
 
     // --- Basic validation: ensure all required fields are present ---
     const missingFields = [];
@@ -43,8 +44,8 @@ const postSensorData = async (req, res) => {
     if (gasValue === undefined) missingFields.push('gasValue');
     if (gasDetected === undefined) missingFields.push('gasDetected');
     if (flameDetected === undefined) missingFields.push('flameDetected');
-    if (emergencyPressed === undefined) missingFields.push('emergencyPressed');
-    if (danger === undefined) missingFields.push('danger');
+    if (finalEmergency === undefined) missingFields.push('emergencyPressed');
+    if (finalDanger === undefined) missingFields.push('danger');
 
     if (missingFields.length > 0) {
       console.warn('❌ ERROR: Missing fields from ESP32 payload:', missingFields);
@@ -62,8 +63,8 @@ const postSensorData = async (req, res) => {
       gasValue,
       gasDetected,
       flameDetected,
-      emergencyPressed,
-      danger,
+      emergencyPressed: finalEmergency,
+      danger: finalDanger,
     });
 
     console.log('✅ SUCCESS: Data saved to MongoDB. ID:', savedData._id);
