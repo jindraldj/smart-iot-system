@@ -25,8 +25,16 @@ export class SensorService {
       // Extract the nested 'data' from our standardized API response
       map(response => {
         if (!response.success) {
+          console.error('❌ [Frontend API] Request failed:', response.message);
           throw new Error('API request failed');
         }
+        
+        if (response.data) {
+          console.log('📡 [Frontend API] Received new sensor payload:', response.data);
+        } else {
+          console.log('⏳ [Frontend API] Waiting for first sensor data from ESP32...');
+        }
+        
         return response.data || null; // Return null gracefully if DB is empty
       }),
       // Retry in case of transient network errors

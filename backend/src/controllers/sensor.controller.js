@@ -23,6 +23,9 @@ const { sendSuccess, sendError } = require('../utils/response.util');
  */
 const postSensorData = async (req, res) => {
   try {
+    console.log('\n--- 📥 INCOMING POST REQUEST FROM ESP32 ---');
+    console.log('Raw Payload received:', req.body);
+    
     const {
       temperature,
       distance,
@@ -44,6 +47,7 @@ const postSensorData = async (req, res) => {
     if (danger === undefined) missingFields.push('danger');
 
     if (missingFields.length > 0) {
+      console.warn('❌ ERROR: Missing fields from ESP32 payload:', missingFields);
       return sendError(
         res,
         400,
@@ -62,14 +66,17 @@ const postSensorData = async (req, res) => {
       danger,
     });
 
+    console.log('✅ SUCCESS: Data saved to MongoDB. ID:', savedData._id);
+
     // Log a server-side warning if the system is in a dangerous state
     if (danger) {
       console.warn('⚠️  DANGER condition received from ESP32!');
     }
 
+    console.log('--- 🏁 END POST REQUEST ---\n');
     return sendSuccess(res, 201, 'Sensor data saved successfully', savedData);
   } catch (error) {
-    console.error('postSensorData error:', error.message);
+    console.error('❌ postSensorData error:', error.message);
     // Handle Mongoose validation errors specifically
     if (error.name === 'ValidationError') {
       return sendError(res, 400, error.message);
