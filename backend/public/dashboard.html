@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Bus Live Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .dashboard {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .sensor-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 5px;
+        }
+        .safe { background: #4CAF50; }
+        .danger { background: #f44336; }
+        .warning { background: #ff9800; }
+        .timestamp {
+            text-align: center;
+            opacity: 0.8;
+            margin-top: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .no-data {
+            text-align: center;
+            opacity: 0.6;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>🚌 IoT Bus Live Dashboard</h1>
+        
+        <div class="card">
+            <h2>📊 Live Sensor Data</h2>
+            <div id="sensorData">
+                <div class="no-data">Waiting for ESP32 data...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📡 Connection Status</h2>
+            <div id="connectionStatus">
+                <div class="status safe">Connected</div>
+                <div>Last Update: <span id="lastUpdate">Never</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchLatestData() {
+            try {
+                const response = await fetch('/api/sensor/latest');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    displayData(result.data);
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                } else {
+                    document.getElementById('sensorData').innerHTML = '<div class="no-data">No data received yet</div>';
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('sensorData').innerHTML = '<div class="no-data">Error connecting to server</div>';
+            }
+        }
+
+        function displayData(data) {
+            const dangerClass = data.danger ? 'danger' : 'safe';
+            const gasClass = data.gasDetected ? 'danger' : 'safe';
+            const flameClass = data.flameDetected ? 'danger' : 'safe';
+            const emergencyClass = data.emergencyPressed ? 'danger' : 'safe';
+
+            document.getElementById('sensorData').innerHTML = `
+                <div class="sensor-grid">
+                    <div class="sensor-item">
+                        <div>🌡️ Temperature</div>
+                        <div class="value">${data.temperature}°C</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div>📏 Distance</div>
+                        <div class="value">${data.distance} cm</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div>💨 Gas Value</div>
+                        <div class="value">${data.gasValue}</div>
+                        <div class="status ${gasClass}">${data.gasDetected ? 'ALERT' : 'SAFE'}</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div>🔥 Flame</div>
+                        <div class="value">${data.flameDetected ? 'DETECTED' : 'NONE'}</div>
+                        <div class="status ${flameClass}">${data.flameDetected ? 'DANGER' : 'SAFE'}</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div>🚨 Emergency</div>
+                        <div class="value">${data.emergencyPressed ? 'PRESSED' : 'NORMAL'}</div>
+                        <div class="status ${emergencyClass}">${data.emergencyPressed ? 'EMERGENCY' : 'OK'}</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div>⚠️ Overall Status</div>
+                        <div class="value">${data.danger ? 'DANGER' : 'SAFE'}</div>
+                        <div class="status ${dangerClass}">${data.danger ? '⚠️ DANGER' : '✅ SAFE'}</div>
+                    </div>
+                </div>
+                <div class="timestamp">
+                    Last received: ${new Date().toLocaleString()}
+                </div>
+            `;
+        }
+
+        // Update data every 2 seconds
+        setInterval(fetchLatestData, 2000);
+        
+        // Initial load
+        fetchLatestData();
+    </script>
+</body>
+</html>

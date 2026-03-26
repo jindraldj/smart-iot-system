@@ -4,6 +4,7 @@
 // -------------------------------------------------
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const sensorRoutes = require('./routes/sensor.routes');
 
 const app = express();
@@ -15,6 +16,9 @@ app.use(cors());
 
 // Parse incoming JSON request bodies (sent by ESP32 and Angular)
 app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Log every request — if ESP32 POST never appears here, the packet is not reaching this PC (IP / firewall / Wi‑Fi)
 app.use((req, res, next) => {
