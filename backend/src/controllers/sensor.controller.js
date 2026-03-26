@@ -4,6 +4,7 @@
 // -------------------------------------------------
 const { saveSensorData, getLatestData } = require('../services/sensor.service');
 const { sendSuccess, sendError } = require('../utils/response.util');
+const { db, isInitialized } = require('../config/firebase');
 
 /** Throttle noisy “no data yet” logs from dashboard polling (1 req/sec). */
 let lastGetLatestEmptyLogMs = 0;
@@ -100,6 +101,36 @@ const postSensorData = async (req, res) => {
       emergencyPressed: finalEmergency,
       danger: finalDanger,
     });
+
+    // --- Save to Firebase if initialized ---
+    if (isInitialized && db) {
+      try {
+        const sensorData = {
+          temperature,
+          distance,
+          gasValue,
+          gasDetected,
+          flameDetected,
+          emergencyPressed: finalEmergency,
+          danger: finalDanger,
+          timestamp: new Date().toISOString(),
+          deviceId: 'esp32-bus-001', // You can make this dynamic
+          location: 'Bus-A' // You can make this dynamic
+        };
+
+        // Save to Firestore
+        await db.collection('sensorReadings').add(sensorData);
+        console.log('✅ Data saved to Firebase Firestore');
+
+        // Also save to Realtime Database for real-time updates
+        const realtimeRef = db.app.database().ref('sensorData/latest');
+        await realtimeRef.set(sensorData);
+        console.log('✅ Data saved to Firebase Realtime Database');
+      } catch (firebaseError) {
+        console.error('❌ Firebase save error:', firebaseError.message);
+        // Don't fail the request if Firebase fails, MongoDB already worked
+      }
+    }
 
     // ─── AFTER: prove MongoDB accepted the document ───
     const plain =
